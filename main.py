@@ -126,11 +126,15 @@ def generar_documento(data: DocumentoRequest):
             filename=f"{data.titulo}.docx"
         )
 
-    except HTTPException:
-        raise
-
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=str(e)
         )
+
+
+@app.get("/test")
+def test():
+    return {
+        "estado": "ok"
+    }
