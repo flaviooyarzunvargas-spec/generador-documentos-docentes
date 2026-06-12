@@ -1,20 +1,41 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel
 from docx import Document
 from pathlib import Path
 import uuid
 
+
 app = FastAPI(
     title="Generador de Documentos Docentes",
-    version="0.1.0",
-    servers=[
+    version="0.1.0"
+)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="Generador de Documentos Docentes",
+        version="0.1.0",
+        description="API para generar documentos docentes en formato DOCX.",
+        routes=app.routes,
+    )
+
+    openapi_schema["servers"] = [
         {
             "url": "https://generador-documentos-docentes.onrender.com",
             "description": "Servidor en Render"
         }
     ]
-)
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 
 class DocumentoRequest(BaseModel):
@@ -32,42 +53,60 @@ def inicio():
     }
 
 
+def seleccionar_plantilla(tipo: str):
+    base_dir = Path(__file__).parent
+    plantillas_dir = base_dir / "plantillas"
+
+    plantillas = {
+        "guia": "GuíaICA.docx",
+        "prueba": "PruebaICA.docx",
+        "planificacion": "PlanificacionICA.docx",
+        "rubrica": "RubricaICA.docx",
+        "solucionario": "GuíaICA.docx"
+    }
+
+    nombre_plantilla = plantillas.get(tipo.lower())
+
+    if not nombre_plantilla:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de documento no válido: {tipo}"
+        )
+
+    ruta_plantilla = plantillas_dir / nombre_plantilla
+
+    if not ruta_plantilla.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No existe la plantilla: {nombre_plantilla}"
+        )
+
+    return ruta_plantilla
+
+
 @app.post("/generar-documento")
 def generar_documento(data: DocumentoRequest):
-
     try:
+        plantilla = seleccionar_plantilla(data.tipo)
 
-        # Ruta base del proyecto
-        base_dir = Path(__file__).parent
-
-        # Plantilla institucional
-        plantilla = base_dir / "plantillas" / "GuíaICA.docx"
-
-        # Abrir plantilla
         doc = Document(str(plantilla))
 
-        # Nueva página para el contenido generado
-#        doc.add_page_break()
-
-        # Encabezado del documento
         doc.add_heading(data.titulo, level=1)
-
         doc.add_paragraph(f"Curso: {data.curso}")
         doc.add_paragraph(f"Asignatura: {data.asignatura}")
-        doc.add_paragraph(f"Tipo: {data.tipo}")
+        doc.add_paragraph(f"Tipo de documento: {data.tipo}")
 
         doc.add_heading("Contenido", level=2)
 
-        # Insertar contenido línea por línea
         for linea in data.contenido.split("\n"):
-            doc.add_paragraph(linea)
+            if linea.strip():
+                doc.add_paragraph(linea)
+            else:
+                doc.add_paragraph("")
 
-        # Nombre único
         nombre_archivo = f"{uuid.uuid4()}.docx"
-
         ruta_salida = Path("/tmp") / nombre_archivo
 
-        # Guardar documento
         doc.save(str(ruta_salida))
 
         return FileResponse(
@@ -76,8 +115,10 @@ def generar_documento(data: DocumentoRequest):
             filename=f"{data.titulo}.docx"
         )
 
-    except Exception as e:
+    except HTTPException:
+        raise
 
+    except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=str(e)
