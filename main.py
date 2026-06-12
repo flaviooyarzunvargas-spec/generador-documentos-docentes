@@ -5,7 +5,16 @@ from docx import Document
 from pathlib import Path
 import uuid
 
-app = FastAPI(title="Generador de Documentos Docentes")
+app = FastAPI(
+    title="Generador de Documentos Docentes",
+    version="0.1.0",
+    servers=[
+        {
+            "url": "https://generador-documentos-docentes.onrender.com",
+            "description": "Servidor en Render"
+        }
+    ]
+)
 
 
 class DocumentoRequest(BaseModel):
