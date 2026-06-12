@@ -4,6 +4,7 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel
 from docx import Document
 from pathlib import Path
+import unicodedata
 import uuid
 
 
@@ -46,6 +47,16 @@ class DocumentoRequest(BaseModel):
     contenido: str
 
 
+def normalizar_texto(texto: str) -> str:
+    texto = texto.lower().strip()
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(
+        c for c in texto
+        if unicodedata.category(c) != "Mn"
+    )
+    return texto
+
+
 @app.get("/")
 def inicio():
     return {
@@ -57,20 +68,23 @@ def seleccionar_plantilla(tipo: str):
     base_dir = Path(__file__).parent
     plantillas_dir = base_dir / "plantillas"
 
+    tipo_normalizado = normalizar_texto(tipo)
+
     plantillas = {
         "guia": "GuíaICA.docx",
         "prueba": "PruebaICA.docx",
         "planificacion": "PlanificacionICA.docx",
+        "planificacion clase": "PlanificacionICA.docx",
         "rubrica": "RubricaICA.docx",
         "solucionario": "GuíaICA.docx"
     }
 
-    nombre_plantilla = plantillas.get(tipo.lower())
+    nombre_plantilla = plantillas.get(tipo_normalizado)
 
     if not nombre_plantilla:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de documento no válido: {tipo}"
+            detail=f"Tipo de documento no válido: {tipo}. Use guia, prueba, planificacion, rubrica o solucionario."
         )
 
     ruta_plantilla = plantillas_dir / nombre_plantilla
@@ -99,10 +113,7 @@ def generar_documento(data: DocumentoRequest):
         doc.add_heading("Contenido", level=2)
 
         for linea in data.contenido.split("\n"):
-            if linea.strip():
-                doc.add_paragraph(linea)
-            else:
-                doc.add_paragraph("")
+            doc.add_paragraph(linea)
 
         nombre_archivo = f"{uuid.uuid4()}.docx"
         ruta_salida = Path("/tmp") / nombre_archivo
