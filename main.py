@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel
 from docx import Document
@@ -11,6 +11,15 @@ import uuid
 app = FastAPI(
     title="Generador de Documentos Docentes",
     version="0.1.0"
+)
+
+OUTPUT_DIR = Path("/tmp/documentos")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount(
+    "/documentos",
+    StaticFiles(directory=str(OUTPUT_DIR)),
+    name="documentos"
 )
 
 
@@ -61,6 +70,13 @@ def normalizar_texto(texto: str) -> str:
 def inicio():
     return {
         "mensaje": "API generadora de documentos activa"
+    }
+
+
+@app.get("/test")
+def test():
+    return {
+        "estado": "ok"
     }
 
 
@@ -116,25 +132,30 @@ def generar_documento(data: DocumentoRequest):
             doc.add_paragraph(linea)
 
         nombre_archivo = f"{uuid.uuid4()}.docx"
-        ruta_salida = Path("/tmp") / nombre_archivo
+        ruta_salida = OUTPUT_DIR / nombre_archivo
 
         doc.save(str(ruta_salida))
 
-        return FileResponse(
-            path=str(ruta_salida),
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=f"{data.titulo}.docx"
+        url_archivo = (
+            f"https://generador-documentos-docentes.onrender.com/"
+            f"documentos/{nombre_archivo}"
         )
+
+        return {
+            "mensaje": "Documento generado correctamente",
+            "titulo": data.titulo,
+            "curso": data.curso,
+            "asignatura": data.asignatura,
+            "tipo": data.tipo,
+            "archivo": nombre_archivo,
+            "url": url_archivo
+        }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=str(e)
         )
-
-
-@app.get("/test")
-def test():
-    return {
-        "estado": "ok"
-    }
