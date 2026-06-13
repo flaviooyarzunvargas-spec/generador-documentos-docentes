@@ -3,3 +3,4 @@ uvicorn
 python-docx
 matplotlib
 pillow
+numpy
