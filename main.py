@@ -13,6 +13,7 @@ app = FastAPI(
     version="0.1.0"
 )
 
+
 OUTPUT_DIR = Path("/tmp/documentos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -21,6 +22,24 @@ app.mount(
     StaticFiles(directory=str(OUTPUT_DIR)),
     name="documentos"
 )
+
+
+class DocumentoRequest(BaseModel):
+    tipo: str
+    titulo: str
+    curso: str
+    asignatura: str
+    contenido: str
+
+
+class DocumentoResponse(BaseModel):
+    mensaje: str
+    titulo: str
+    curso: str
+    asignatura: str
+    tipo: str
+    archivo: str
+    url: str
 
 
 def custom_openapi():
@@ -48,14 +67,6 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-class DocumentoRequest(BaseModel):
-    tipo: str
-    titulo: str
-    curso: str
-    asignatura: str
-    contenido: str
-
-
 def normalizar_texto(texto: str) -> str:
     texto = texto.lower().strip()
     texto = unicodedata.normalize("NFD", texto)
@@ -80,6 +91,13 @@ def test():
     }
 
 
+@app.get("/ping")
+def ping():
+    return {
+        "ping": "pong"
+    }
+
+
 def seleccionar_plantilla(tipo: str):
     base_dir = Path(__file__).parent
     plantillas_dir = base_dir / "plantillas"
@@ -100,7 +118,10 @@ def seleccionar_plantilla(tipo: str):
     if not nombre_plantilla:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de documento no válido: {tipo}. Use guia, prueba, planificacion, rubrica o solucionario."
+            detail=(
+                f"Tipo de documento no válido: {tipo}. "
+                "Use guia, prueba, planificacion, rubrica o solucionario."
+            )
         )
 
     ruta_plantilla = plantillas_dir / nombre_plantilla
@@ -114,7 +135,10 @@ def seleccionar_plantilla(tipo: str):
     return ruta_plantilla
 
 
-@app.post("/generar-documento")
+@app.post(
+    "/generar-documento",
+    response_model=DocumentoResponse
+)
 def generar_documento(data: DocumentoRequest):
     try:
         plantilla = seleccionar_plantilla(data.tipo)
@@ -137,19 +161,19 @@ def generar_documento(data: DocumentoRequest):
         doc.save(str(ruta_salida))
 
         url_archivo = (
-            f"https://generador-documentos-docentes.onrender.com/"
+            "https://generador-documentos-docentes.onrender.com/"
             f"documentos/{nombre_archivo}"
         )
 
-        return {
-            "mensaje": "Documento generado correctamente",
-            "titulo": data.titulo,
-            "curso": data.curso,
-            "asignatura": data.asignatura,
-            "tipo": data.tipo,
-            "archivo": nombre_archivo,
-            "url": url_archivo
-        }
+        return DocumentoResponse(
+            mensaje="Documento generado correctamente",
+            titulo=data.titulo,
+            curso=data.curso,
+            asignatura=data.asignatura,
+            tipo=data.tipo,
+            archivo=nombre_archivo,
+            url=url_archivo
+        )
 
     except HTTPException:
         raise
@@ -159,6 +183,3 @@ def generar_documento(data: DocumentoRequest):
             status_code=500,
             detail=str(e)
         )
-@app.get("/ping")
-def ping():
-    return {"ping": "pong"}
