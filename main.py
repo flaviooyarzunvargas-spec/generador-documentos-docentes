@@ -227,6 +227,32 @@ def generar_grafico_sistema(
     return ruta_imagen
 
 
+def generar_grafico_barras(
+    categorias: list[str],
+    valores: list[float],
+    titulo: str,
+    etiqueta_x: str,
+    etiqueta_y: str
+) -> Path:
+    if len(categorias) != len(valores):
+        raise ValueError("La cantidad de categorías debe coincidir con la cantidad de valores.")
+
+    nombre_imagen = f"barras_{uuid.uuid4()}.png"
+    ruta_imagen = OUTPUT_DIR / nombre_imagen
+
+    plt.figure(figsize=(6, 4))
+    plt.bar(categorias, valores)
+    plt.title(titulo)
+    plt.xlabel(etiqueta_x)
+    plt.ylabel(etiqueta_y)
+    plt.grid(axis="y")
+    plt.tight_layout()
+    plt.savefig(str(ruta_imagen), dpi=150)
+    plt.close()
+
+    return ruta_imagen
+
+
 def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
     patron = r"\[GRAFICO_FUNCION:(.*?)\]"
     coincidencia = re.search(patron, linea)
@@ -287,11 +313,58 @@ def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
+    """
+    Formato:
+    [GRAFICO_BARRAS: titulo=Deportes favoritos; categorias=Futbol,Basquetbol,Voleibol; valores=15,8,5; etiqueta_x=Deporte; etiqueta_y=Frecuencia]
+    """
+
+    patron = r"\[GRAFICO_BARRAS:(.*?)\]"
+    coincidencia = re.search(patron, linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    titulo = parametros.get("titulo", "Gráfico de barras")
+    categorias_texto = parametros.get("categorias")
+    valores_texto = parametros.get("valores")
+    etiqueta_x = parametros.get("etiqueta_x", "Categoría")
+    etiqueta_y = parametros.get("etiqueta_y", "Valor")
+
+    if not categorias_texto or not valores_texto:
+        doc.add_paragraph("Error: marcador de barras sin categorías o valores.")
+        return True
+
+    categorias = [c.strip() for c in categorias_texto.split(",")]
+    
+    try:
+        valores = [float(v.strip()) for v in valores_texto.split(",")]
+    except ValueError:
+        doc.add_paragraph("Error: los valores del gráfico de barras deben ser numéricos.")
+        return True
+
+    ruta_grafico = generar_grafico_barras(
+        categorias=categorias,
+        valores=valores,
+        titulo=titulo,
+        etiqueta_x=etiqueta_x,
+        etiqueta_y=etiqueta_y
+    )
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
     if procesar_linea_con_grafico_funcion(doc, linea):
         return True
 
     if procesar_linea_con_grafico_sistema(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_barras(doc, linea):
         return True
 
     return False
