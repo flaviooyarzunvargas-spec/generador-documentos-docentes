@@ -159,3 +159,6 @@ def generar_documento(data: DocumentoRequest):
             status_code=500,
             detail=str(e)
         )
+@app.get("/ping")
+def ping():
+    return {"ping": "pong"}
