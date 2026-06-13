@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
@@ -160,12 +159,7 @@ def parsear_parametros(contenido: str) -> dict:
     return parametros
 
 
-def generar_grafico_funcion(
-    expresion: str,
-    titulo: str,
-    x_min: float,
-    x_max: float
-) -> Path:
+def generar_grafico_funcion(expresion: str, titulo: str, x_min: float, x_max: float) -> Path:
     nombre_imagen = f"grafico_{uuid.uuid4()}.png"
     ruta_imagen = OUTPUT_DIR / nombre_imagen
 
@@ -296,6 +290,50 @@ def generar_grafico_circunferencia(
     return ruta_imagen
 
 
+def generar_grafico_triangulo(
+    puntos: list[tuple[float, float]],
+    etiquetas: list[str],
+    titulo: str,
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float
+) -> Path:
+    if len(puntos) != 3:
+        raise ValueError("El gráfico de triángulo requiere exactamente 3 puntos.")
+
+    if len(etiquetas) != 3:
+        etiquetas = ["A", "B", "C"]
+
+    nombre_imagen = f"triangulo_{uuid.uuid4()}.png"
+    ruta_imagen = OUTPUT_DIR / nombre_imagen
+
+    xs = [p[0] for p in puntos] + [puntos[0][0]]
+    ys = [p[1] for p in puntos] + [puntos[0][1]]
+
+    plt.figure(figsize=(6, 6))
+    plt.plot(xs, ys, marker="o")
+    plt.fill(xs, ys, alpha=0.15)
+
+    for (x, y), etiqueta in zip(puntos, etiquetas):
+        plt.text(x, y, f" {etiqueta}({x:g},{y:g})", fontsize=10)
+
+    plt.axhline(0, linewidth=1)
+    plt.axvline(0, linewidth=1)
+    plt.grid(True)
+    plt.title(titulo)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
+    plt.gca().set_aspect("equal", adjustable="box")
+    plt.tight_layout()
+    plt.savefig(str(ruta_imagen), dpi=150)
+    plt.close()
+
+    return ruta_imagen
+
+
 def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
     patron = r"\[GRAFICO_FUNCION:(.*?)\]"
     coincidencia = re.search(patron, linea)
@@ -314,13 +352,7 @@ def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
         doc.add_paragraph("Error: marcador de gráfico sin expresión.")
         return True
 
-    ruta_grafico = generar_grafico_funcion(
-        expresion=expresion,
-        titulo=titulo,
-        x_min=x_min,
-        x_max=x_max
-    )
-
+    ruta_grafico = generar_grafico_funcion(expresion, titulo, x_min, x_max)
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
@@ -345,13 +377,12 @@ def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
         return True
 
     ruta_grafico = generar_grafico_sistema(
-        expresion_f=expresion_f,
-        expresion_g=expresion_g,
-        titulo=titulo,
-        x_min=x_min,
-        x_max=x_max
+        expresion_f,
+        expresion_g,
+        titulo,
+        x_min,
+        x_max
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
@@ -384,23 +415,17 @@ def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
         return True
 
     ruta_grafico = generar_grafico_barras(
-        categorias=categorias,
-        valores=valores,
-        titulo=titulo,
-        etiqueta_x=etiqueta_x,
-        etiqueta_y=etiqueta_y
+        categorias,
+        valores,
+        titulo,
+        etiqueta_x,
+        etiqueta_y
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool:
-    """
-    Formato:
-    [GRAFICO_CIRCUNFERENCIA: centro=0,0; radio=3; titulo=Circunferencia de radio 3; x_min=-5; x_max=5; y_min=-5; y_max=5]
-    """
-
     patron = r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]"
     coincidencia = re.search(patron, linea)
 
@@ -436,15 +461,77 @@ def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool
         return True
 
     ruta_grafico = generar_grafico_circunferencia(
-        centro_x=centro_x,
-        centro_y=centro_y,
-        radio=radio,
-        titulo=titulo,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max
+        centro_x,
+        centro_y,
+        radio,
+        titulo,
+        x_min,
+        x_max,
+        y_min,
+        y_max
     )
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
+def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
+    """
+    Formato:
+    [GRAFICO_TRIANGULO: puntos=0,0|4,0|0,3; etiquetas=A,B,C; titulo=Triángulo rectángulo; x_min=-1; x_max=5; y_min=-1; y_max=4]
+    """
+
+    patron = r"\[GRAFICO_TRIANGULO:(.*?)\]"
+    coincidencia = re.search(patron, linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    puntos_texto = parametros.get("puntos")
+    etiquetas_texto = parametros.get("etiquetas", "A,B,C")
+    titulo = parametros.get("titulo", "Triángulo")
+
+    if not puntos_texto:
+        doc.add_paragraph("Error: marcador de triángulo sin puntos.")
+        return True
+
+    try:
+        puntos = []
+        for par in puntos_texto.split("|"):
+            x_texto, y_texto = par.split(",")
+            puntos.append((float(x_texto.strip()), float(y_texto.strip())))
+
+        etiquetas = [e.strip() for e in etiquetas_texto.split(",")]
+
+        xs = [p[0] for p in puntos]
+        ys = [p[1] for p in puntos]
+
+        x_min = float(parametros.get("x_min", min(xs) - 1))
+        x_max = float(parametros.get("x_max", max(xs) + 1))
+        y_min = float(parametros.get("y_min", min(ys) - 1))
+        y_max = float(parametros.get("y_max", max(ys) + 1))
+
+    except Exception:
+        doc.add_paragraph(
+            "Error: formato inválido en marcador de triángulo. "
+            "Use puntos=0,0|4,0|0,3; etiquetas=A,B,C."
+        )
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_triangulo(
+            puntos,
+            etiquetas,
+            titulo,
+            x_min,
+            x_max,
+            y_min,
+            y_max
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar triángulo: {e}")
+        return True
 
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
@@ -461,6 +548,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_circunferencia(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_triangulo(doc, linea):
         return True
 
     return False
