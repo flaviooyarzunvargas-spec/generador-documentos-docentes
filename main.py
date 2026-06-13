@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel
 from docx import Document
+from docx.shared import Inches
 from pathlib import Path
 import unicodedata
 import uuid
@@ -135,6 +136,37 @@ def seleccionar_plantilla(tipo: str):
     return ruta_plantilla
 
 
+def insertar_imagenes_matematicas(doc: Document):
+    """
+    Inserta imágenes matemáticas generadas previamente si existen.
+    Busca imágenes dentro de la carpeta /imagenes.
+    """
+
+    base_dir = Path(__file__).parent
+    imagenes_dir = base_dir / "imagenes"
+
+    imagenes = [
+        imagenes_dir / "fraccion_3_4.png",
+        imagenes_dir / "decimal_025.png"
+    ]
+
+    imagenes_existentes = [
+        imagen for imagen in imagenes
+        if imagen.exists()
+    ]
+
+    if not imagenes_existentes:
+        return
+
+    doc.add_heading("Representaciones visuales", level=2)
+
+    for imagen in imagenes_existentes:
+        doc.add_picture(
+            str(imagen),
+            width=Inches(2.5)
+        )
+
+
 @app.post(
     "/generar-documento",
     response_model=DocumentoResponse
@@ -151,6 +183,8 @@ def generar_documento(data: DocumentoRequest):
         doc.add_paragraph(f"Tipo de documento: {data.tipo}")
 
         doc.add_heading("Contenido", level=2)
+
+        insertar_imagenes_matematicas(doc)
 
         for linea in data.contenido.split("\n"):
             doc.add_paragraph(linea)
