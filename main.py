@@ -132,26 +132,8 @@ def seleccionar_plantilla(tipo: str):
     return ruta_plantilla
 
 
-def generar_grafico_funcion(
-    expresion: str,
-    titulo: str,
-    x_min: float,
-    x_max: float
-) -> Path:
-    """
-    Genera gráfico de una función y devuelve la ruta PNG.
-    La expresión debe escribirse en formato Python:
-    2*x + 1
-    -x + 3
-    x**2 - 4
-    """
-
-    nombre_imagen = f"grafico_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    x = np.linspace(x_min, x_max, 400)
-
-    entorno_seguro = {
+def obtener_entorno_seguro(x):
+    return {
         "x": x,
         "np": np,
         "sin": np.sin,
@@ -163,6 +145,31 @@ def generar_grafico_funcion(
         "pi": np.pi,
         "abs": np.abs
     }
+
+
+def parsear_parametros(contenido: str) -> dict:
+    parametros = {}
+    partes = contenido.split(";")
+
+    for parte in partes:
+        if "=" in parte:
+            clave, valor = parte.split("=", 1)
+            parametros[clave.strip()] = valor.strip()
+
+    return parametros
+
+
+def generar_grafico_funcion(
+    expresion: str,
+    titulo: str,
+    x_min: float,
+    x_max: float
+) -> Path:
+    nombre_imagen = f"grafico_{uuid.uuid4()}.png"
+    ruta_imagen = OUTPUT_DIR / nombre_imagen
+
+    x = np.linspace(x_min, x_max, 400)
+    entorno_seguro = obtener_entorno_seguro(x)
 
     try:
         y = eval(expresion, {"__builtins__": {}}, entorno_seguro)
@@ -184,31 +191,50 @@ def generar_grafico_funcion(
     return ruta_imagen
 
 
-def procesar_linea_con_grafico(doc: Document, linea: str) -> bool:
-    """
-    Detecta líneas con este formato:
+def generar_grafico_sistema(
+    expresion_f: str,
+    expresion_g: str,
+    titulo: str,
+    x_min: float,
+    x_max: float
+) -> Path:
+    nombre_imagen = f"sistema_{uuid.uuid4()}.png"
+    ruta_imagen = OUTPUT_DIR / nombre_imagen
 
-    [GRAFICO_FUNCION: expr=2*x+1; titulo=f(x)=2x+1; x_min=-4; x_max=4]
+    x = np.linspace(x_min, x_max, 400)
+    entorno_seguro = obtener_entorno_seguro(x)
 
-    Si la línea contiene ese marcador, genera e inserta el gráfico.
-    Retorna True si insertó gráfico; False si no.
-    """
+    try:
+        y_f = eval(expresion_f, {"__builtins__": {}}, entorno_seguro)
+        y_g = eval(expresion_g, {"__builtins__": {}}, entorno_seguro)
+    except Exception as e:
+        raise ValueError(f"No se pudo graficar el sistema: {e}")
 
+    plt.figure(figsize=(6, 4))
+    plt.plot(x, y_f, label=f"f(x) = {expresion_f}")
+    plt.plot(x, y_g, label=f"g(x) = {expresion_g}")
+    plt.axhline(0, linewidth=1)
+    plt.axvline(0, linewidth=1)
+    plt.grid(True)
+    plt.title(titulo)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(str(ruta_imagen), dpi=150)
+    plt.close()
+
+    return ruta_imagen
+
+
+def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
     patron = r"\[GRAFICO_FUNCION:(.*?)\]"
     coincidencia = re.search(patron, linea)
 
     if not coincidencia:
         return False
 
-    contenido = coincidencia.group(1)
-
-    parametros = {}
-    partes = contenido.split(";")
-
-    for parte in partes:
-        if "=" in parte:
-            clave, valor = parte.split("=", 1)
-            parametros[clave.strip()] = valor.strip()
+    parametros = parsear_parametros(coincidencia.group(1))
 
     expresion = parametros.get("expr")
     titulo = parametros.get("titulo", f"Gráfico de {expresion}")
@@ -230,6 +256,47 @@ def procesar_linea_con_grafico(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
+    patron = r"\[GRAFICO_SISTEMA:(.*?)\]"
+    coincidencia = re.search(patron, linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    expresion_f = parametros.get("f")
+    expresion_g = parametros.get("g")
+    titulo = parametros.get("titulo", "Sistema de ecuaciones")
+    x_min = float(parametros.get("x_min", -5))
+    x_max = float(parametros.get("x_max", 5))
+
+    if not expresion_f or not expresion_g:
+        doc.add_paragraph("Error: marcador de sistema sin funciones f o g.")
+        return True
+
+    ruta_grafico = generar_grafico_sistema(
+        expresion_f=expresion_f,
+        expresion_g=expresion_g,
+        titulo=titulo,
+        x_min=x_min,
+        x_max=x_max
+    )
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
+def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
+    if procesar_linea_con_grafico_funcion(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_sistema(doc, linea):
+        return True
+
+    return False
+
+
 @app.post(
     "/generar-documento",
     response_model=DocumentoResponse
@@ -237,7 +304,6 @@ def procesar_linea_con_grafico(doc: Document, linea: str) -> bool:
 def generar_documento(data: DocumentoRequest):
     try:
         plantilla = seleccionar_plantilla(data.tipo)
-
         doc = Document(str(plantilla))
 
         doc.add_heading(data.titulo, level=1)
@@ -250,7 +316,7 @@ def generar_documento(data: DocumentoRequest):
         for linea in data.contenido.split("\n"):
             linea_limpia = linea.strip()
 
-            if procesar_linea_con_grafico(doc, linea_limpia):
+            if procesar_linea_con_elementos_visuales(doc, linea_limpia):
                 continue
 
             doc.add_paragraph(linea)
