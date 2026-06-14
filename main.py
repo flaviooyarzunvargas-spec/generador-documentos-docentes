@@ -17,7 +17,8 @@ from generadores.funciones import (
 from generadores.estadistica import (
     generar_grafico_barras,
     generar_grafico_sectores,
-    generar_grafico_histograma
+    generar_grafico_histograma,
+    generar_grafico_dispersion
 )
 
 from generadores.geometria import (
@@ -341,6 +342,48 @@ def procesar_linea_con_grafico_histograma(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_dispersion(doc: Document, linea: str) -> bool:
+    coincidencia = re.search(r"\[GRAFICO_DISPERSION:(.*?)\]", linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    titulo = parametros.get("titulo", "Diagrama de dispersión")
+    x_texto = parametros.get("x")
+    y_texto = parametros.get("y")
+    etiqueta_x = parametros.get("etiqueta_x", "X")
+    etiqueta_y = parametros.get("etiqueta_y", "Y")
+
+    if not x_texto or not y_texto:
+        doc.add_paragraph("Error: marcador de dispersión sin valores x o y.")
+        return True
+
+    try:
+        valores_x = [float(v.strip()) for v in x_texto.split(",")]
+        valores_y = [float(v.strip()) for v in y_texto.split(",")]
+    except ValueError:
+        doc.add_paragraph("Error: los valores de dispersión deben ser numéricos.")
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_dispersion(
+            valores_x,
+            valores_y,
+            titulo,
+            etiqueta_x,
+            etiqueta_y,
+            OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar dispersión: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]", linea)
 
@@ -463,6 +506,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_histograma(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_dispersion(doc, linea):
         return True
 
     if procesar_linea_con_grafico_circunferencia(doc, linea):

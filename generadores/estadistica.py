@@ -111,3 +111,45 @@ def generar_grafico_histograma(
     plt.close()
 
     return ruta_imagen
+
+
+def generar_grafico_dispersion(
+    valores_x: list[float],
+    valores_y: list[float],
+    titulo: str,
+    etiqueta_x: str,
+    etiqueta_y: str,
+    output_dir: Path
+) -> Path:
+
+    if len(valores_x) != len(valores_y):
+        raise ValueError(
+            "La cantidad de valores X debe coincidir con la cantidad de valores Y."
+        )
+
+    if len(valores_x) == 0:
+        raise ValueError(
+            "Debe existir al menos un punto para construir el gráfico."
+        )
+
+    nombre_imagen = f"dispersion_{uuid.uuid4()}.png"
+    ruta_imagen = output_dir / nombre_imagen
+
+    plt.figure(figsize=(6, 4))
+
+    plt.scatter(
+        valores_x,
+        valores_y
+    )
+
+    plt.title(titulo)
+    plt.xlabel(etiqueta_x)
+    plt.ylabel(etiqueta_y)
+
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(str(ruta_imagen), dpi=150)
+    plt.close()
+
+    return ruta_imagen
