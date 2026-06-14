@@ -23,7 +23,8 @@ from generadores.estadistica import (
 
 from generadores.geometria import (
     generar_grafico_circunferencia,
-    generar_grafico_triangulo
+    generar_grafico_triangulo,
+    generar_grafico_poligono
 )
 
 
@@ -161,12 +162,10 @@ def parsear_parametros(contenido: str) -> dict:
 
 def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_FUNCION:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     expresion = parametros.get("expr")
     titulo = parametros.get("titulo", f"Gráfico de {expresion}")
     x_min = float(parametros.get("x_min", -5))
@@ -177,25 +176,18 @@ def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
         return True
 
     ruta_grafico = generar_grafico_funcion(
-        expresion,
-        titulo,
-        x_min,
-        x_max,
-        OUTPUT_DIR
+        expresion, titulo, x_min, x_max, OUTPUT_DIR
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_SISTEMA:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     expresion_f = parametros.get("f")
     expresion_g = parametros.get("g")
     titulo = parametros.get("titulo", "Sistema de ecuaciones")
@@ -207,26 +199,18 @@ def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
         return True
 
     ruta_grafico = generar_grafico_sistema(
-        expresion_f,
-        expresion_g,
-        titulo,
-        x_min,
-        x_max,
-        OUTPUT_DIR
+        expresion_f, expresion_g, titulo, x_min, x_max, OUTPUT_DIR
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_BARRAS:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     titulo = parametros.get("titulo", "Gráfico de barras")
     categorias_texto = parametros.get("categorias")
     valores_texto = parametros.get("valores")
@@ -246,26 +230,18 @@ def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
         return True
 
     ruta_grafico = generar_grafico_barras(
-        categorias,
-        valores,
-        titulo,
-        etiqueta_x,
-        etiqueta_y,
-        OUTPUT_DIR
+        categorias, valores, titulo, etiqueta_x, etiqueta_y, OUTPUT_DIR
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_SECTORES:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     titulo = parametros.get("titulo", "Gráfico circular")
     categorias_texto = parametros.get("categorias")
     valores_texto = parametros.get("valores")
@@ -284,10 +260,7 @@ def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
 
     try:
         ruta_grafico = generar_grafico_sectores(
-            categorias,
-            valores,
-            titulo,
-            OUTPUT_DIR
+            categorias, valores, titulo, OUTPUT_DIR
         )
     except Exception as e:
         doc.add_paragraph(f"Error al generar gráfico de sectores: {e}")
@@ -299,12 +272,10 @@ def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
 
 def procesar_linea_con_grafico_histograma(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_HISTOGRAMA:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     titulo = parametros.get("titulo", "Histograma")
     datos_texto = parametros.get("datos")
     etiqueta_x = parametros.get("etiqueta_x", "Datos")
@@ -327,12 +298,7 @@ def procesar_linea_con_grafico_histograma(doc: Document, linea: str) -> bool:
 
     try:
         ruta_grafico = generar_grafico_histograma(
-            datos,
-            titulo,
-            etiqueta_x,
-            etiqueta_y,
-            bins,
-            OUTPUT_DIR
+            datos, titulo, etiqueta_x, etiqueta_y, bins, OUTPUT_DIR
         )
     except Exception as e:
         doc.add_paragraph(f"Error al generar histograma: {e}")
@@ -344,12 +310,10 @@ def procesar_linea_con_grafico_histograma(doc: Document, linea: str) -> bool:
 
 def procesar_linea_con_grafico_dispersion(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_DISPERSION:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     titulo = parametros.get("titulo", "Diagrama de dispersión")
     x_texto = parametros.get("x")
     y_texto = parametros.get("y")
@@ -369,12 +333,7 @@ def procesar_linea_con_grafico_dispersion(doc: Document, linea: str) -> bool:
 
     try:
         ruta_grafico = generar_grafico_dispersion(
-            valores_x,
-            valores_y,
-            titulo,
-            etiqueta_x,
-            etiqueta_y,
-            OUTPUT_DIR
+            valores_x, valores_y, titulo, etiqueta_x, etiqueta_y, OUTPUT_DIR
         )
     except Exception as e:
         doc.add_paragraph(f"Error al generar dispersión: {e}")
@@ -386,12 +345,10 @@ def procesar_linea_con_grafico_dispersion(doc: Document, linea: str) -> bool:
 
 def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     centro_texto = parametros.get("centro", "0,0")
     radio_texto = parametros.get("radio")
     titulo = parametros.get("titulo", "Circunferencia")
@@ -419,29 +376,18 @@ def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool
         return True
 
     ruta_grafico = generar_grafico_circunferencia(
-        centro_x,
-        centro_y,
-        radio,
-        titulo,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        OUTPUT_DIR
+        centro_x, centro_y, radio, titulo, x_min, x_max, y_min, y_max, OUTPUT_DIR
     )
-
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
     coincidencia = re.search(r"\[GRAFICO_TRIANGULO:(.*?)\]", linea)
-
     if not coincidencia:
         return False
 
     parametros = parsear_parametros(coincidencia.group(1))
-
     puntos_texto = parametros.get("puntos")
     etiquetas_texto = parametros.get("etiquetas", "A,B,C")
     titulo = parametros.get("titulo", "Triángulo")
@@ -457,7 +403,6 @@ def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
             puntos.append((float(x_texto.strip()), float(y_texto.strip())))
 
         etiquetas = [e.strip() for e in etiquetas_texto.split(",")]
-
         xs = [p[0] for p in puntos]
         ys = [p[1] for p in puntos]
 
@@ -475,17 +420,63 @@ def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
 
     try:
         ruta_grafico = generar_grafico_triangulo(
-            puntos,
-            etiquetas,
-            titulo,
-            x_min,
-            x_max,
-            y_min,
-            y_max,
-            OUTPUT_DIR
+            puntos, etiquetas, titulo, x_min, x_max, y_min, y_max, OUTPUT_DIR
         )
     except Exception as e:
         doc.add_paragraph(f"Error al generar triángulo: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
+def procesar_linea_con_grafico_poligono(doc: Document, linea: str) -> bool:
+    coincidencia = re.search(r"\[GRAFICO_POLIGONO:(.*?)\]", linea)
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+    puntos_texto = parametros.get("puntos")
+    etiquetas_texto = parametros.get("etiquetas", "")
+    titulo = parametros.get("titulo", "Polígono")
+
+    if not puntos_texto:
+        doc.add_paragraph("Error: marcador de polígono sin puntos.")
+        return True
+
+    try:
+        puntos = []
+        for par in puntos_texto.split("|"):
+            x_texto, y_texto = par.split(",")
+            puntos.append((float(x_texto.strip()), float(y_texto.strip())))
+
+        etiquetas = [
+            e.strip()
+            for e in etiquetas_texto.split(",")
+            if e.strip()
+        ]
+
+        xs = [p[0] for p in puntos]
+        ys = [p[1] for p in puntos]
+
+        x_min = float(parametros.get("x_min", min(xs) - 1))
+        x_max = float(parametros.get("x_max", max(xs) + 1))
+        y_min = float(parametros.get("y_min", min(ys) - 1))
+        y_max = float(parametros.get("y_max", max(ys) + 1))
+
+    except Exception:
+        doc.add_paragraph(
+            "Error: formato inválido en marcador de polígono. "
+            "Use puntos=0,0|4,0|5,3; etiquetas=A,B,C."
+        )
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_poligono(
+            puntos, etiquetas, titulo, x_min, x_max, y_min, y_max, OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar polígono: {e}")
         return True
 
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
@@ -515,6 +506,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_triangulo(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_poligono(doc, linea):
         return True
 
     return False
