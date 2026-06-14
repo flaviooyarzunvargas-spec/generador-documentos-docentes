@@ -25,7 +25,8 @@ from generadores.geometria import (
     generar_grafico_circunferencia,
     generar_grafico_triangulo,
     generar_grafico_poligono,
-    generar_grafico_traslacion
+    generar_grafico_traslacion,
+    generar_grafico_reflexion
 )
 
 
@@ -554,6 +555,78 @@ def procesar_linea_con_grafico_traslacion(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_reflexion(doc: Document, linea: str) -> bool:
+    coincidencia = re.search(r"\[GRAFICO_REFLEXION:(.*?)\]", linea)
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+    puntos_texto = parametros.get("puntos")
+    etiquetas_texto = parametros.get("etiquetas", "")
+    eje = parametros.get("eje", "y")
+    titulo = parametros.get("titulo", "Reflexión")
+
+    if not puntos_texto:
+        doc.add_paragraph("Error: marcador de reflexión sin puntos.")
+        return True
+
+    try:
+        puntos = []
+        for par in puntos_texto.split("|"):
+            x_texto, y_texto = par.split(",")
+            puntos.append((float(x_texto.strip()), float(y_texto.strip())))
+
+        etiquetas = [
+            e.strip()
+            for e in etiquetas_texto.split(",")
+            if e.strip()
+        ]
+
+        eje = eje.lower().strip()
+
+        if eje == "x":
+            puntos_reflejados = [(x, -y) for x, y in puntos]
+        elif eje == "y":
+            puntos_reflejados = [(-x, y) for x, y in puntos]
+        else:
+            doc.add_paragraph("Error: el eje de reflexión debe ser x o y.")
+            return True
+
+        todos_x = [p[0] for p in puntos] + [p[0] for p in puntos_reflejados]
+        todos_y = [p[1] for p in puntos] + [p[1] for p in puntos_reflejados]
+
+        x_min = float(parametros.get("x_min", min(todos_x) - 1))
+        x_max = float(parametros.get("x_max", max(todos_x) + 1))
+        y_min = float(parametros.get("y_min", min(todos_y) - 1))
+        y_max = float(parametros.get("y_max", max(todos_y) + 1))
+
+    except Exception:
+        doc.add_paragraph(
+            "Error: formato inválido en marcador de reflexión. "
+            "Use puntos=1,1|4,1|2,3; eje=y; etiquetas=A,B,C."
+        )
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_reflexion(
+            puntos,
+            etiquetas,
+            eje,
+            titulo,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar reflexión: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
     if procesar_linea_con_grafico_funcion(doc, linea):
         return True
@@ -583,6 +656,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_traslacion(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_reflexion(doc, linea):
         return True
 
     return False
