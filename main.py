@@ -24,7 +24,8 @@ from generadores.estadistica import (
 from generadores.geometria import (
     generar_grafico_circunferencia,
     generar_grafico_triangulo,
-    generar_grafico_poligono
+    generar_grafico_poligono,
+    generar_grafico_traslacion
 )
 
 
@@ -483,6 +484,76 @@ def procesar_linea_con_grafico_poligono(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_traslacion(doc: Document, linea: str) -> bool:
+    coincidencia = re.search(r"\[GRAFICO_TRASLACION:(.*?)\]", linea)
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+    puntos_texto = parametros.get("puntos")
+    etiquetas_texto = parametros.get("etiquetas", "")
+    titulo = parametros.get("titulo", "Traslación")
+
+    if not puntos_texto:
+        doc.add_paragraph("Error: marcador de traslación sin puntos.")
+        return True
+
+    try:
+        dx = float(parametros.get("dx", 0))
+        dy = float(parametros.get("dy", 0))
+
+        puntos = []
+        for par in puntos_texto.split("|"):
+            x_texto, y_texto = par.split(",")
+            puntos.append((float(x_texto.strip()), float(y_texto.strip())))
+
+        etiquetas = [
+            e.strip()
+            for e in etiquetas_texto.split(",")
+            if e.strip()
+        ]
+
+        puntos_trasladados = [
+            (x + dx, y + dy)
+            for x, y in puntos
+        ]
+
+        todos_x = [p[0] for p in puntos] + [p[0] for p in puntos_trasladados]
+        todos_y = [p[1] for p in puntos] + [p[1] for p in puntos_trasladados]
+
+        x_min = float(parametros.get("x_min", min(todos_x) - 1))
+        x_max = float(parametros.get("x_max", max(todos_x) + 1))
+        y_min = float(parametros.get("y_min", min(todos_y) - 1))
+        y_max = float(parametros.get("y_max", max(todos_y) + 1))
+
+    except Exception:
+        doc.add_paragraph(
+            "Error: formato inválido en marcador de traslación. "
+            "Use puntos=0,0|4,0|2,3; dx=3; dy=2; etiquetas=A,B,C."
+        )
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_traslacion(
+            puntos,
+            etiquetas,
+            dx,
+            dy,
+            titulo,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+            OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar traslación: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
     if procesar_linea_con_grafico_funcion(doc, linea):
         return True
@@ -509,6 +580,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_poligono(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_traslacion(doc, linea):
         return True
 
     return False
