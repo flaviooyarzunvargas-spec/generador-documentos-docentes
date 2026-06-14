@@ -14,7 +14,10 @@ from generadores.funciones import (
     generar_grafico_sistema
 )
 
-from generadores.estadistica import generar_grafico_barras
+from generadores.estadistica import (
+    generar_grafico_barras,
+    generar_grafico_sectores
+)
 
 from generadores.geometria import (
     generar_grafico_circunferencia,
@@ -256,6 +259,46 @@ def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
+    patron = r"\[GRAFICO_SECTORES:(.*?)\]"
+    coincidencia = re.search(patron, linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    titulo = parametros.get("titulo", "Gráfico circular")
+    categorias_texto = parametros.get("categorias")
+    valores_texto = parametros.get("valores")
+
+    if not categorias_texto or not valores_texto:
+        doc.add_paragraph("Error: marcador de sectores sin categorías o valores.")
+        return True
+
+    categorias = [c.strip() for c in categorias_texto.split(",")]
+
+    try:
+        valores = [float(v.strip()) for v in valores_texto.split(",")]
+    except ValueError:
+        doc.add_paragraph("Error: los valores del gráfico de sectores deben ser numéricos.")
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_sectores(
+            categorias,
+            valores,
+            titulo,
+            OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar gráfico de sectores: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool:
     patron = r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]"
     coincidencia = re.search(patron, linea)
@@ -374,6 +417,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_barras(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_sectores(doc, linea):
         return True
 
     if procesar_linea_con_grafico_circunferencia(doc, linea):
