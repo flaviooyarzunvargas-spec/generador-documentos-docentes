@@ -8,8 +8,18 @@ from pathlib import Path
 import unicodedata
 import uuid
 import re
-import numpy as np
-import matplotlib.pyplot as plt
+
+from generadores.funciones import (
+    generar_grafico_funcion,
+    generar_grafico_sistema
+)
+
+from generadores.estadistica import generar_grafico_barras
+
+from generadores.geometria import (
+    generar_grafico_circunferencia,
+    generar_grafico_triangulo
+)
 
 
 app = FastAPI(
@@ -132,21 +142,6 @@ def seleccionar_plantilla(tipo: str):
     return ruta_plantilla
 
 
-def obtener_entorno_seguro(x):
-    return {
-        "x": x,
-        "np": np,
-        "sin": np.sin,
-        "cos": np.cos,
-        "tan": np.tan,
-        "sqrt": np.sqrt,
-        "log": np.log,
-        "exp": np.exp,
-        "pi": np.pi,
-        "abs": np.abs
-    }
-
-
 def parsear_parametros(contenido: str) -> dict:
     parametros = {}
     partes = contenido.split(";")
@@ -157,181 +152,6 @@ def parsear_parametros(contenido: str) -> dict:
             parametros[clave.strip()] = valor.strip()
 
     return parametros
-
-
-def generar_grafico_funcion(expresion: str, titulo: str, x_min: float, x_max: float) -> Path:
-    nombre_imagen = f"grafico_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    x = np.linspace(x_min, x_max, 400)
-    entorno_seguro = obtener_entorno_seguro(x)
-
-    try:
-        y = eval(expresion, {"__builtins__": {}}, entorno_seguro)
-    except Exception as e:
-        raise ValueError(f"No se pudo graficar la función '{expresion}': {e}")
-
-    plt.figure(figsize=(6, 4))
-    plt.plot(x, y)
-    plt.axhline(0, linewidth=1)
-    plt.axvline(0, linewidth=1)
-    plt.grid(True)
-    plt.title(titulo)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.tight_layout()
-    plt.savefig(str(ruta_imagen), dpi=150)
-    plt.close()
-
-    return ruta_imagen
-
-
-def generar_grafico_sistema(
-    expresion_f: str,
-    expresion_g: str,
-    titulo: str,
-    x_min: float,
-    x_max: float
-) -> Path:
-    nombre_imagen = f"sistema_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    x = np.linspace(x_min, x_max, 400)
-    entorno_seguro = obtener_entorno_seguro(x)
-
-    try:
-        y_f = eval(expresion_f, {"__builtins__": {}}, entorno_seguro)
-        y_g = eval(expresion_g, {"__builtins__": {}}, entorno_seguro)
-    except Exception as e:
-        raise ValueError(f"No se pudo graficar el sistema: {e}")
-
-    plt.figure(figsize=(6, 4))
-    plt.plot(x, y_f, label=f"f(x) = {expresion_f}")
-    plt.plot(x, y_g, label=f"g(x) = {expresion_g}")
-    plt.axhline(0, linewidth=1)
-    plt.axvline(0, linewidth=1)
-    plt.grid(True)
-    plt.title(titulo)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(str(ruta_imagen), dpi=150)
-    plt.close()
-
-    return ruta_imagen
-
-
-def generar_grafico_barras(
-    categorias: list[str],
-    valores: list[float],
-    titulo: str,
-    etiqueta_x: str,
-    etiqueta_y: str
-) -> Path:
-    if len(categorias) != len(valores):
-        raise ValueError(
-            "La cantidad de categorías debe coincidir con la cantidad de valores."
-        )
-
-    nombre_imagen = f"barras_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    plt.figure(figsize=(6, 4))
-    plt.bar(categorias, valores)
-    plt.title(titulo)
-    plt.xlabel(etiqueta_x)
-    plt.ylabel(etiqueta_y)
-    plt.grid(axis="y")
-    plt.tight_layout()
-    plt.savefig(str(ruta_imagen), dpi=150)
-    plt.close()
-
-    return ruta_imagen
-
-
-def generar_grafico_circunferencia(
-    centro_x: float,
-    centro_y: float,
-    radio: float,
-    titulo: str,
-    x_min: float,
-    x_max: float,
-    y_min: float,
-    y_max: float
-) -> Path:
-    if radio <= 0:
-        raise ValueError("El radio debe ser mayor que 0.")
-
-    nombre_imagen = f"circunferencia_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    theta = np.linspace(0, 2 * np.pi, 400)
-    x = centro_x + radio * np.cos(theta)
-    y = centro_y + radio * np.sin(theta)
-
-    plt.figure(figsize=(6, 6))
-    plt.plot(x, y, label=f"Centro ({centro_x}, {centro_y}), radio {radio}")
-    plt.plot(centro_x, centro_y, marker="o")
-    plt.axhline(0, linewidth=1)
-    plt.axvline(0, linewidth=1)
-    plt.grid(True)
-    plt.title(titulo)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(str(ruta_imagen), dpi=150)
-    plt.close()
-
-    return ruta_imagen
-
-
-def generar_grafico_triangulo(
-    puntos: list[tuple[float, float]],
-    etiquetas: list[str],
-    titulo: str,
-    x_min: float,
-    x_max: float,
-    y_min: float,
-    y_max: float
-) -> Path:
-    if len(puntos) != 3:
-        raise ValueError("El gráfico de triángulo requiere exactamente 3 puntos.")
-
-    if len(etiquetas) != 3:
-        etiquetas = ["A", "B", "C"]
-
-    nombre_imagen = f"triangulo_{uuid.uuid4()}.png"
-    ruta_imagen = OUTPUT_DIR / nombre_imagen
-
-    xs = [p[0] for p in puntos] + [puntos[0][0]]
-    ys = [p[1] for p in puntos] + [puntos[0][1]]
-
-    plt.figure(figsize=(6, 6))
-    plt.plot(xs, ys, marker="o")
-    plt.fill(xs, ys, alpha=0.15)
-
-    for (x, y), etiqueta in zip(puntos, etiquetas):
-        plt.text(x, y, f" {etiqueta}({x:g},{y:g})", fontsize=10)
-
-    plt.axhline(0, linewidth=1)
-    plt.axvline(0, linewidth=1)
-    plt.grid(True)
-    plt.title(titulo)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.tight_layout()
-    plt.savefig(str(ruta_imagen), dpi=150)
-    plt.close()
-
-    return ruta_imagen
 
 
 def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
@@ -352,7 +172,14 @@ def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
         doc.add_paragraph("Error: marcador de gráfico sin expresión.")
         return True
 
-    ruta_grafico = generar_grafico_funcion(expresion, titulo, x_min, x_max)
+    ruta_grafico = generar_grafico_funcion(
+        expresion,
+        titulo,
+        x_min,
+        x_max,
+        OUTPUT_DIR
+    )
+
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
@@ -381,8 +208,10 @@ def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
         expresion_g,
         titulo,
         x_min,
-        x_max
+        x_max,
+        OUTPUT_DIR
     )
+
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
@@ -419,8 +248,10 @@ def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
         valores,
         titulo,
         etiqueta_x,
-        etiqueta_y
+        etiqueta_y,
+        OUTPUT_DIR
     )
+
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
@@ -468,18 +299,15 @@ def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool
         x_min,
         x_max,
         y_min,
-        y_max
+        y_max,
+        OUTPUT_DIR
     )
+
     doc.add_picture(str(ruta_grafico), width=Inches(5.5))
     return True
 
 
 def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
-    """
-    Formato:
-    [GRAFICO_TRIANGULO: puntos=0,0|4,0|0,3; etiquetas=A,B,C; titulo=Triángulo rectángulo; x_min=-1; x_max=5; y_min=-1; y_max=4]
-    """
-
     patron = r"\[GRAFICO_TRIANGULO:(.*?)\]"
     coincidencia = re.search(patron, linea)
 
@@ -527,7 +355,8 @@ def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
             x_min,
             x_max,
             y_min,
-            y_max
+            y_max,
+            OUTPUT_DIR
         )
     except Exception as e:
         doc.add_paragraph(f"Error al generar triángulo: {e}")
