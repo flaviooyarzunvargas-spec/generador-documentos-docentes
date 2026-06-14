@@ -69,3 +69,45 @@ def generar_grafico_sectores(
     plt.close()
 
     return ruta_imagen
+
+
+def generar_grafico_histograma(
+    datos: list[float],
+    titulo: str,
+    etiqueta_x: str,
+    etiqueta_y: str,
+    bins: int,
+    output_dir: Path
+) -> Path:
+
+    if len(datos) == 0:
+        raise ValueError(
+            "Debe existir al menos un dato para construir el histograma."
+        )
+
+    if bins <= 0:
+        raise ValueError(
+            "La cantidad de intervalos (bins) debe ser mayor que 0."
+        )
+
+    nombre_imagen = f"histograma_{uuid.uuid4()}.png"
+    ruta_imagen = output_dir / nombre_imagen
+
+    plt.figure(figsize=(6, 4))
+
+    plt.hist(
+        datos,
+        bins=bins
+    )
+
+    plt.title(titulo)
+    plt.xlabel(etiqueta_x)
+    plt.ylabel(etiqueta_y)
+
+    plt.grid(axis="y")
+
+    plt.tight_layout()
+    plt.savefig(str(ruta_imagen), dpi=150)
+    plt.close()
+
+    return ruta_imagen

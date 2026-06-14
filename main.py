@@ -16,7 +16,8 @@ from generadores.funciones import (
 
 from generadores.estadistica import (
     generar_grafico_barras,
-    generar_grafico_sectores
+    generar_grafico_sectores,
+    generar_grafico_histograma
 )
 
 from generadores.geometria import (
@@ -158,8 +159,7 @@ def parsear_parametros(contenido: str) -> dict:
 
 
 def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_FUNCION:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_FUNCION:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -188,8 +188,7 @@ def procesar_linea_con_grafico_funcion(doc: Document, linea: str) -> bool:
 
 
 def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_SISTEMA:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_SISTEMA:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -220,8 +219,7 @@ def procesar_linea_con_grafico_sistema(doc: Document, linea: str) -> bool:
 
 
 def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_BARRAS:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_BARRAS:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -260,8 +258,7 @@ def procesar_linea_con_grafico_barras(doc: Document, linea: str) -> bool:
 
 
 def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_SECTORES:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_SECTORES:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -299,9 +296,53 @@ def procesar_linea_con_grafico_sectores(doc: Document, linea: str) -> bool:
     return True
 
 
+def procesar_linea_con_grafico_histograma(doc: Document, linea: str) -> bool:
+    coincidencia = re.search(r"\[GRAFICO_HISTOGRAMA:(.*?)\]", linea)
+
+    if not coincidencia:
+        return False
+
+    parametros = parsear_parametros(coincidencia.group(1))
+
+    titulo = parametros.get("titulo", "Histograma")
+    datos_texto = parametros.get("datos")
+    etiqueta_x = parametros.get("etiqueta_x", "Datos")
+    etiqueta_y = parametros.get("etiqueta_y", "Frecuencia")
+
+    try:
+        bins = int(parametros.get("bins", 5))
+    except ValueError:
+        bins = 5
+
+    if not datos_texto:
+        doc.add_paragraph("Error: marcador de histograma sin datos.")
+        return True
+
+    try:
+        datos = [float(valor.strip()) for valor in datos_texto.split(",")]
+    except ValueError:
+        doc.add_paragraph("Error: los datos del histograma deben ser numéricos.")
+        return True
+
+    try:
+        ruta_grafico = generar_grafico_histograma(
+            datos,
+            titulo,
+            etiqueta_x,
+            etiqueta_y,
+            bins,
+            OUTPUT_DIR
+        )
+    except Exception as e:
+        doc.add_paragraph(f"Error al generar histograma: {e}")
+        return True
+
+    doc.add_picture(str(ruta_grafico), width=Inches(5.5))
+    return True
+
+
 def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_CIRCUNFERENCIA:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -351,8 +392,7 @@ def procesar_linea_con_grafico_circunferencia(doc: Document, linea: str) -> bool
 
 
 def procesar_linea_con_grafico_triangulo(doc: Document, linea: str) -> bool:
-    patron = r"\[GRAFICO_TRIANGULO:(.*?)\]"
-    coincidencia = re.search(patron, linea)
+    coincidencia = re.search(r"\[GRAFICO_TRIANGULO:(.*?)\]", linea)
 
     if not coincidencia:
         return False
@@ -420,6 +460,9 @@ def procesar_linea_con_elementos_visuales(doc: Document, linea: str) -> bool:
         return True
 
     if procesar_linea_con_grafico_sectores(doc, linea):
+        return True
+
+    if procesar_linea_con_grafico_histograma(doc, linea):
         return True
 
     if procesar_linea_con_grafico_circunferencia(doc, linea):
